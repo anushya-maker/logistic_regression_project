@@ -5,136 +5,104 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 
 # ==========================================
-# 1. Custom Logistic Regression Implementation
+# 1. Logistic Regression Class
 # ==========================================
 
-class LogisticRegressionFromScratch:
-    def __init__(self, learning_rate=0.01, iterations=1000):
-        self.learning_rate = learning_rate
-        self.iterations = iterations
+class MyLogisticRegression:
+    def __init__(self, lr=0.01, n_iters=10000):
+        # Increased to 10000 iterations as per project requirements
+        self.lr = lr
+        self.n_iters = n_iters
         self.weights = None
         self.bias = None
-        self.cost_history = []
+        self.losses = []
 
-    # Sigmoid Activation Function
+    # Sigmoid function to map inputs to 0-1 range
     def _sigmoid(self, z):
         return 1 / (1 + np.exp(-z))
 
-    # Binary Cross-Entropy Cost Function
-    def _compute_cost(self, y_true, y_pred):
-        # Adding a small epsilon to prevent log(0) errors
-        epsilon = 1e-15
-        y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
-        m = len(y_true)
-        cost = -1/m * np.sum(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
-        return cost
+    # Calculating Binary Cross Entropy loss
+    def _compute_loss(self, y_true, y_pred):
+        # small value to avoid log(0) error
+        epsilon = 1e-9
+        y1 = y_true * np.log(y_pred + epsilon)
+        y2 = (1 - y_true) * np.log(1 - y_pred + epsilon)
+        return -np.mean(y1 + y2)
 
-    # Training the model (Gradient Descent)
     def fit(self, X, y):
         n_samples, n_features = X.shape
         
-        # Initialize parameters (weights as zeros)
+        # init parameters to zero
         self.weights = np.zeros(n_features)
         self.bias = 0
 
-        for i in range(self.iterations):
-            # 1. Linear model (z = wx + b)
-            linear_model = np.dot(X, self.weights) + self.bias
-            
-            # 2. Apply activation (sigmoid)
-            y_predicted = self._sigmoid(linear_model)
+        # Gradient Descent loop
+        for _ in range(self.n_iters):
+            linear_pred = np.dot(X, self.weights) + self.bias
+            predictions = self._sigmoid(linear_pred)
 
-            # 3. Compute Gradients
-            # Derivative with respect to weights
-            dw = (1 / n_samples) * np.dot(X.T, (y_predicted - y))
-            # Derivative with respect to bias
-            db = (1 / n_samples) * np.sum(y_predicted - y)
+            # Gradients
+            dw = (1 / n_samples) * np.dot(X.T, (predictions - y))
+            db = (1 / n_samples) * np.sum(predictions - y)
 
-            # 4. Update Parameters
-            self.weights -= self.learning_rate * dw
-            self.bias -= self.learning_rate * db
+            # Update weights
+            self.weights = self.weights - self.lr * dw
+            self.bias = self.bias - self.lr * db
 
-            # Optional: Record cost every 100 iterations to track progress
-            if i % 100 == 0:
-                cost = self._compute_cost(y, y_predicted)
-                self.cost_history.append(cost)
-
-    # Prediction function
     def predict(self, X):
-        linear_model = np.dot(X, self.weights) + self.bias
-        y_predicted = self._sigmoid(linear_model)
-        # Convert probabilities to class labels (0 or 1) using 0.5 threshold
-        y_class = [1 if i > 0.5 else 0 for i in y_predicted]
-        return np.array(y_class)
-
-# Helper function to calculate metrics manually for the custom model
-def calculate_metrics(y_true, y_pred):
-    # True Positives, False Positives, etc.
-    tp = np.sum((y_true == 1) & (y_pred == 1))
-    tn = np.sum((y_true == 0) & (y_pred == 0))
-    fp = np.sum((y_true == 0) & (y_pred == 1))
-    fn = np.sum((y_true == 1) & (y_pred == 0))
-
-    # Calculate metrics
-    accuracy = (tp + tn) / (tp + tn + fp + fn)
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-    
-    return accuracy, precision, recall
+        linear_pred = np.dot(X, self.weights) + self.bias
+        y_pred = self._sigmoid(linear_pred)
+        # Convert probabilities to 0 or 1
+        class_preds = [0 if y <= 0.5 else 1 for y in y_pred]
+        return np.array(class_preds)
 
 # ==========================================
-# 2. Main Execution
+# 2. Main Script
 # ==========================================
 
 if __name__ == "__main__":
-    # --- Step 1: Data Generation ---
-    print("Generating synthetic dataset...")
-    X, y = make_classification(
-        n_samples=500,
-        n_features=5,
-        n_classes=2,
-        random_state=42, # Ensures reproducibility
-        n_informative=4, 
-        n_redundant=0
-    )
-
-    # Split into training and testing sets (80% train, 20% test)
+    # Generate data (500 samples, 5 features)
+    X, y = make_classification(n_samples=500, n_features=5, n_classes=2, random_state=42)
+    
+    # Split 80/20
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # --- Step 2 & 3: Train Custom Model ---
-    print("\nTraining Custom Logistic Regression Model...")
-    custom_model = LogisticRegressionFromScratch(learning_rate=0.01, iterations=1000)
-    custom_model.fit(X_train, y_train)
+    # --- Train My Model ---
+    print("Training custom model...")
+    my_model = MyLogisticRegression(lr=0.01, n_iters=10000)
+    my_model.fit(X_train, y_train)
 
-    print(f"Final Weights: {custom_model.weights}")
-    print(f"Final Bias: {custom_model.bias}")
+    # Predictions
+    my_preds = my_model.predict(X_test)
 
-    # --- Step 4: Evaluate Custom Model ---
-    custom_preds = custom_model.predict(X_test)
-    c_acc, c_prec, c_rec = calculate_metrics(y_test, custom_preds)
+    # --- Train Sklearn Model ---
+    # Setting penalty to None to match our simple implementation
+    print("Training sklearn model...")
+    sk_model = LogisticRegression(penalty=None, max_iter=10000, random_state=42)
+    sk_model.fit(X_train, y_train)
+    sk_preds = sk_model.predict(X_test)
 
-    print("\n--- Custom Implementation Results ---")
-    print(f"Accuracy:  {c_acc:.4f}")
-    print(f"Precision: {c_prec:.4f}")
-    print(f"Recall:    {c_rec:.4f}")
+    # --- Evaluation ---
+    def get_metrics(y_true, y_pred):
+        acc = accuracy_score(y_true, y_pred)
+        prec = precision_score(y_true, y_pred)
+        rec = recall_score(y_true, y_pred)
+        return acc, prec, rec
 
-    # --- Step 5: Compare with Scikit-Learn ---
-    print("\nTraining Scikit-Learn Model for Comparison...")
-    # Note: sklearn uses regularization by default. Setting penalty=None to match our vanilla implementation closer,
-    # though slight differences are expected due to solvers.
-    sklearn_model = LogisticRegression(penalty=None, random_state=42) 
-    sklearn_model.fit(X_train, y_train)
-    sklearn_preds = sklearn_model.predict(X_test)
+    my_acc, my_prec, my_rec = get_metrics(y_test, my_preds)
+    sk_acc, sk_prec, sk_rec = get_metrics(y_test, sk_preds)
 
-    sk_acc = accuracy_score(y_test, sklearn_preds)
-    sk_prec = precision_score(y_test, sklearn_preds)
-    sk_rec = recall_score(y_test, sklearn_preds)
-
-    print("\n--- Scikit-Learn Results ---")
-    print(f"Accuracy:  {sk_acc:.4f}")
-    print(f"Precision: {sk_prec:.4f}")
-    print(f"Recall:    {sk_rec:.4f}")
-
-    # --- Comparison Summary ---
-    print("\n--- Comparison ---")
-    print(f"Accuracy Difference: {abs(c_acc - sk_acc):.4f}")
+    print("\n--- RESULTS TO COPY FOR REPORT ---")
+    print(f"Custom Accuracy:  {my_acc:.4f}")
+    print(f"Custom Precision: {my_prec:.4f}")
+    print(f"Custom Recall:    {my_rec:.4f}")
+    print("-" * 20)
+    print(f"Sklearn Accuracy:  {sk_acc:.4f}")
+    print(f"Sklearn Precision: {sk_prec:.4f}")
+    print(f"Sklearn Recall:    {sk_rec:.4f}")
+    
+    print("\n--- LEARNED PARAMETERS (COPY THESE) ---")
+    # Using list comprehension to round weights for easier copying
+    rounded_weights = [round(w, 4) for w in my_model.weights]
+    print(f"Final Weights: {rounded_weights}")
+    print(f"Final Bias:    {my_model.bias:.4f}")
